@@ -166,6 +166,12 @@ void EK_TM4C1294XL_initGeneral(void)
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOR);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOS);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOT);
+
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
+
+    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_ADC0)) { };
+
+    GPIOPinTypeADC(GPIO_PORTE_BASE, GPIO_PIN_3 | GPIO_PIN_2);
 }
 
 /*
