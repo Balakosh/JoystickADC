@@ -21,15 +21,20 @@
 // #include <ti/drivers/WiFi.h>
 #include <ti/drivers/UART.h>
 #include <driverlib/adc.h>
+#include <driverlib/ssi.h>
 #include <inc/hw_memmap.h>
 #include <sys/socket.h>
 
 #include "Board.h"
+#include "wlModule/wlmodule.h"
 
 #define TASKSTACKSIZE 1024
 #define ADC_TASK_STACKSIZE 2048
+#define WLMODULE_TASK_STACKSIZE 2048
+
 #define ADC0_BASEADDRESS 0x40038000
 #define ADC1_BASEADDRESS 0x40039000
+
 #define TCPPACKETSIZE 256
 #define NUMTCPWORKERS 3
 
@@ -38,6 +43,9 @@ Char task0Stack[TASKSTACKSIZE];
 
 Task_Struct adcTaskStruct;
 Char adcTaskStack[ADC_TASK_STACKSIZE];
+
+Task_Struct wlmoduleTaskStruct;
+Char wlmoduleTaskStack[WLMODULE_TASK_STACKSIZE];
 
 uint32_t adcValueX;
 uint32_t adcValueY;
@@ -198,26 +206,18 @@ void initADC(void)
     ADCSequenceEnable(ADC0_BASE, 1);
 }
 
-int main(void)
+void configSPI(void)
+{
+    SSIConfigSetExpClk(WLMODULE_SPI_BASE, 120000000, SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 2000000, 8);
+    SSIEnable(WLMODULE_SPI_BASE);
+}
+
+void constructTasks(void)
 {
     Task_Params taskParams;
     Task_Params adcTaskParams;
+    Task_Params wlModuleTaskParams;
     Error_Block eb;
-
-    /* Call board init functions */
-    Board_initGeneral();
-    Board_initEMAC();
-    Board_initGPIO();
-    // Board_initI2C();
-    // Board_initSDSPI();
-    Board_initSPI();
-    // Board_initUART();
-    // Board_initUSB(Board_USBDEVICE);
-    // Board_initUSBMSCHFatFs();
-    // Board_initWatchdog();
-    // Board_initWiFi();
-
-    initADC();
 
     Error_init(&eb);
 
@@ -235,6 +235,35 @@ int main(void)
     adcTaskParams.stackSize = ADC_TASK_STACKSIZE;
     adcTaskParams.stack = &adcTaskStack;
     Task_construct(&adcTaskStruct, (Task_FuncPtr)adcTaskFxn, &adcTaskParams, &eb);
+
+    Error_init(&eb);
+
+    Task_Params_init(&wlModuleTaskParams);
+    wlModuleTaskParams.arg0 = 1000;
+    wlModuleTaskParams.stackSize = WLMODULE_TASK_STACKSIZE;
+    wlModuleTaskParams.stack = &wlmoduleTaskStack;
+    Task_construct(&wlmoduleTaskStruct, (Task_FuncPtr)wlModuleTaskFnx, &wlModuleTaskParams, &eb);
+}
+
+int main(void)
+{
+    /* Call board init functions */
+    Board_initGeneral();
+    Board_initEMAC();
+    Board_initGPIO();
+    // Board_initI2C();
+    // Board_initSDSPI();
+    Board_initSPI();
+    // Board_initUART();
+    // Board_initUSB(Board_USBDEVICE);
+    // Board_initUSBMSCHFatFs();
+    // Board_initWatchdog();
+    // Board_initWiFi();
+
+    initADC();
+    configSPI();
+
+    constructTasks();
 
     GPIO_write(Board_LED0, Board_LED_ON);
 
